@@ -14,9 +14,9 @@
         #log-text { font-size: 1.05rem; text-align: left; line-height: 1.3; font-weight: bold; color: #2c3e50; }
         .icon-box { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-size: 2rem; }
         
-        /* カメラプレビュー表示エリア */
-        .camera-wrapper { position: relative; width: 100%; max-width: 400px; margin: 5px auto; display: none; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-        #video { width: 100%; background: #000; display: block; }
+        /* カメラプレビュー表示エリア（上下をカット） */
+        .camera-wrapper { position: relative; width: 100%; max-width: 400px; margin: 5px auto; display: none; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15); height: 300px; /* カメラの表示高さを制限 */ }
+        #video { width: 100%; background: #000; display: block; height: 100%; object-fit: cover; /* カメラ画像をトリミングして表示 */ object-position: center; /* 中央を基準にトリミング */ }
         
         /* 操作用ボタン群 */
         .btn-group { display: flex; gap: 8px; margin-top: 8px; }
@@ -43,7 +43,6 @@
 <div class="container">
     <div class="top-info">熱中症計 自動記録システム</div>
 
-    <!-- ステータスおよび成功通知エリア -->
     <div id="log-container">
         <div id="log-icon" class="icon-box">🔍</div>
         <div id="log-text">最初にカメラを起動してください</div>
@@ -67,10 +66,9 @@
         </ul>
     </div>
 
-    <div class="version-info">Ver 2.20 (Gemini自動判別・A/B/Cマーカー対応)</div>
+    <div class="version-info">Ver 2.30 (Gemini自動判別・A/B/Cマーカー対応・カメラトリミング表示)</div>
 </div>
 
-<!-- キャプチャ処理用のダミーキャンバス（非表示） -->
 <canvas id="canvas"></canvas>
 
 <script>
