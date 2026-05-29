@@ -3,29 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>熱中症記録カメラ (Gemini自動判別版)</title>
+    <title>熱中症記録カメラ (iOS・エラー対策版)</title>
     <style>
         body { font-family: sans-serif; text-align: center; margin: 0; padding: 5px; background: #f4f6f9; touch-action: manipulation; }
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); box-sizing: border-box; }
         .top-info { background: #2c3e50; color: white; padding: 12px; border-radius: 6px; font-weight: bold; margin-bottom: 8px; font-size: 1.1rem; }
-        
-        /* 状態表示・通知エリア（書き込み成功時に5秒間緑色になります） */
-        #log-container { margin: 5px 0; min-height: 75px; background: #ffffff; padding: 8px; border-radius: 6px; border: 1px solid #cfd8dc; display: flex; align-items: center; justify-content: center; gap: 15px; transition: background 0.3s ease; }
-        #log-text { font-size: 1.05rem; text-align: left; line-height: 1.3; font-weight: bold; color: #2c3e50; }
+        #log-container { margin: 5px 0; min-height: 85px; background: #ffffff; padding: 10px; border-radius: 6px; border: 1px solid #cfd8dc; display: flex; align-items: center; justify-content: center; gap: 15px; transition: background 0.3s ease; }
+        #log-text { font-size: 1.05rem; text-align: left; line-height: 1.4; font-weight: bold; color: #2c3e50; }
         .icon-box { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-size: 2rem; }
-        
-        /* カメラプレビュー表示エリア（上下をカット） */
-        .camera-wrapper { position: relative; width: 100%; max-width: 400px; margin: 5px auto; display: none; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15); height: 300px; /* カメラの表示高さを制限 */ }
-        #video { width: 100%; background: #000; display: block; height: 100%; object-fit: cover; /* カメラ画像をトリミングして表示 */ object-position: center; /* 中央を基準にトリミング */ }
-        
-        /* 操作用ボタン群 */
+        .camera-wrapper { position: relative; width: 100%; max-width: 400px; margin: 5px auto; display: none; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15); height: 320px; }
+        #video { width: 100%; background: #000; display: block; height: 100%; object-fit: cover; object-position: center; }
+        .overlay-guide { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; border: 3px dashed rgba(255, 255, 255, 0.4); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; }
+        .guide-text { color: yellow; background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; align-self: center; }
         .btn-group { display: flex; gap: 8px; margin-top: 8px; }
         .btn { color: white; padding: 14px; font-size: 1.2rem; border: none; border-radius: 10px; width: 100%; cursor: pointer; font-weight: bold; -webkit-appearance: none; }
         #cameraBtn { background: #2c3e50; }
         #shutterBtn { background: #d32f2f; flex: 2; display: none; }
         #torchBtn { background: #fbc02d; color: #2c3e50; flex: 1; display: none; font-size: 1rem; }
-        
-        /* 送信履歴エリア */
         .history-container { margin-top: 12px; text-align: left; background: #34495e; color: white; padding: 10px; border-radius: 8px; box-sizing: border-box; }
         .history-title { font-size: 0.9rem; font-weight: bold; margin-bottom: 6px; border-bottom: 1px solid #455a64; padding-bottom: 4px; color: #bdc3c7; }
         #historyList { max-height: 120px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; padding: 0; margin: 0; list-style: none; }
@@ -33,7 +27,6 @@
         .history-ok { color: #2ecc71; }
         .history-ng { color: #e74c3c; }
         .history-wait { color: #f1c40f; }
-        
         .version-info { margin-top: 10px; font-size: 0.7rem; color: #7f8c8d; text-align: center; }
         #canvas { display: none; }
     </style>
@@ -42,7 +35,6 @@
 
 <div class="container">
     <div class="top-info">熱中症計 自動記録システム</div>
-
     <div id="log-container">
         <div id="log-icon" class="icon-box">🔍</div>
         <div id="log-text">最初にカメラを起動してください</div>
@@ -51,7 +43,12 @@
     <button id="cameraBtn" onclick="startCamera()" class="btn">カメラを起動する</button>
 
     <div class="camera-wrapper" id="cameraWrapper">
-        <video id="video" autoplay playsinline></video>
+        <video id="video" autoplay playsinline muted></video>
+        <div class="overlay-guide">
+            <span class="guide-text">マーカー(A,B,C)と熱中症計を枠内に収めてください</span>
+            <div style="border: 2px dashed rgba(255,255,255,0.6); height: 50%; width: 100%; border-radius: 6px;"></div>
+            <span class="guide-text">ピントを合わせて撮影してください</span>
+        </div>
     </div>
 
     <div class="btn-group">
@@ -65,15 +62,14 @@
             <li id="lbl-history-empty" style="color:#bdc3c7;">履歴はここに表示されます</li>
         </ul>
     </div>
-
-    <div class="version-info">Ver 2.30 (Gemini自動判別・A/B/Cマーカー対応・カメラトリミング表示)</div>
+    <div class="version-info">Ver 2.55 (GASエラー対策 ＆ iOS互換強化版)</div>
 </div>
 
 <canvas id="canvas"></canvas>
 
 <script>
-// ★【重要】デプロイした最新GASのウェブアプリURLをここに貼り付けてください
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxxurWNieYuq2Lnzg4b0YRITwcRE4zggbEZBRfntgQgnx31sijZfV5Zop3-VUEmhJcGUg/exec"; 
+// ★ 新しく作成したGASのデプロイURLをここに貼り付けてください
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxDmSUaJee6j7mnoJVGbvgzzxA7qg0pSsJaoOJE3Z74fRINErDggdxWRYyV7Me40Rb6kQ/exec"; 
 
 let videoStream = null;
 let videoTrack = null;
@@ -83,15 +79,13 @@ let isSending = false;
 let successTimer = null;
 let countdownInterval = null;
 
-// 3秒ごとに送信キューの状態を確認し、未送信データがあれば送信する
 setInterval(processQueueBulk, 3000);
 
-function updateSystemStatusMessage(statusType) {
+function updateSystemStatusMessage(statusType, customText = "") {
     const logContainer = document.getElementById("log-container");
     const logIcon = document.getElementById("log-icon");
     const logText = document.getElementById("log-text");
 
-    // 成功通知用のタイマーとカウントダウンをリセット
     if (statusType !== "success_hold") {
         clearInterval(countdownInterval);
         clearTimeout(successTimer);
@@ -101,62 +95,59 @@ function updateSystemStatusMessage(statusType) {
 
     if (statusType === "sending") {
         logContainer.style.background = "#fff3cd"; logIcon.innerHTML = "🚀";
-        logText.style.color = "#e67e22"; logText.innerHTML = "Gemini自動解析・スプシ送信中...";
+        logText.style.color = "#e67e22"; logText.innerHTML = "Gemini解析 ＆ スプシ自動記入中...";
     } else if (statusType === "waiting") {
         logContainer.style.background = "#e8f5e9"; logIcon.innerHTML = "📥";
         logText.style.color = "#1a73e8"; logText.innerHTML = `送信待ちの写真が ${sendQueue.length} 件あります`;
     } else if (statusType === "success_hold") {
-        // ★【5秒間長めの成功通知】鮮やかな緑色画面＋5秒カウントダウン表示
         logContainer.style.background = "#2ecc71"; logIcon.innerHTML = "✅";
         logText.style.color = "#ffffff";
-        
         let secondsLeft = 5;
-        logText.innerHTML = `シートへの記録が完了しました！<br><span style='font-size:0.9rem;'>画面はあと (${secondsLeft}) 秒で戻ります</span>`;
+        const info = customText ? `<br><span style="font-size:0.95rem; background:rgba(0,0,0,0.15); padding:2px 6px; border-radius:4px;">${customText}</span>` : "";
+        logText.innerHTML = `シート記入完了！${info}<br><span style='font-size:0.8rem; opacity:0.8;'>画面はあと (${secondsLeft}) 秒で戻ります</span>`;
         
         countdownInterval = setInterval(() => {
             secondsLeft--;
-            if (secondsLeft > 0) {
-                logText.innerHTML = `シートへの記録が完了しました！<br><span style='font-size:0.9rem;'>画面はあと (${secondsLeft}) 秒で戻ります</span>`;
-            } else {
-                clearInterval(countdownInterval);
-            }
+            if (secondsLeft <= 0) clearInterval(countdownInterval);
         }, 1000);
-
-        successTimer = setTimeout(() => {
-            updateSystemStatusMessage("guide");
-        }, 5000);
+        successTimer = setTimeout(() => { updateSystemStatusMessage("guide"); }, 5000);
     } else if (statusType === "guide") {
         logIcon.innerHTML = "📸";
-        logText.innerHTML = "熱中症計と近くのマーカー（A, B, C）を同時に写して撮影してください";
-    } else {
-        logIcon.innerHTML = "🔍";
-        logText.style.color = "#757575"; logText.innerHTML = "最初にカメラを起動してください";
+        logText.innerHTML = "熱中症計と近くのマーカー（A, B, C）を同時にハッキリ写して撮影してください";
     }
 }
 
 function startCamera() {
     document.getElementById("log-text").innerHTML = "カメラを起動しています...";
-    navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
-    }).then((stream) => {
-        videoStream = stream;
-        videoTrack = stream.getVideoTracks()[0];
-        document.getElementById("video").srcObject = stream;
-        
-        document.getElementById("cameraBtn").style.display = "none";
-        document.getElementById("cameraWrapper").style.display = "block";
-        document.getElementById("shutterBtn").style.display = "block";
-        
-        // スマホ背面ライト（懐中電灯機能）が利用可能かチェック
-        const capabilities = videoTrack.getCapabilities();
-        if (capabilities.torch) {
-            document.getElementById("torchBtn").style.display = "block";
-        }
-        updateSystemStatusMessage("guide");
-    }).catch((err) => {
-        alert("カメラの起動に失敗しました。カメラの使用権限をブラウザで許可してください。");
-        console.error(err);
-    });
+    const constraints1 = { video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false };
+    const constraints2 = { video: { facingMode: "environment" }, audio: false };
+
+    tryMediaDevice(constraints1)
+        .catch(() => tryMediaDevice(constraints2))
+        .catch((err) => {
+            alert("カメラの起動に失敗しました。LINE内等の場合はSafari/Chromeで開き直してください。");
+            document.getElementById("log-text").innerHTML = "カメラ起動エラー。再読み込みしてください。";
+        });
+}
+
+function tryMediaDevice(constraints) {
+    return navigator.mediaDevices.getUserMedia(constraints)
+        .then((stream) => {
+            videoStream = stream;
+            videoTrack = stream.getVideoTracks()[0];
+            const video = document.getElementById("video");
+            video.srcObject = stream;
+            video.onloadedmetadata = () => { video.play().catch(e => console.log(e)); };
+            document.getElementById("cameraBtn").style.display = "none";
+            document.getElementById("cameraWrapper").style.display = "block";
+            document.getElementById("shutterBtn").style.display = "block";
+            try {
+                const caps = videoTrack.getCapabilities();
+                if (caps && caps.torch) document.getElementById("torchBtn").style.display = "block";
+            } catch(e) {}
+            updateSystemStatusMessage("guide");
+            return true;
+        });
 }
 
 function toggleTorch() {
@@ -164,16 +155,12 @@ function toggleTorch() {
     isTorchOn = !isTorchOn;
     videoTrack.applyConstraints({ advanced: [{ torch: isTorchOn }] })
     .then(() => {
-        document.getElementById("torchBtn").innerText = isTorchOn ? "🔌 ライト OFF" : "💡 ライト ON";
-    }).catch((err) => {
-        console.error("ライト制御エラー:", err);
-        isTorchOn = !isTorchOn;
-    });
+        document.getElementById("torchBtn").innerText = isTorchOn ? "💡 ライト OFF" : "💡 ライト ON";
+    }).catch(() => { isTorchOn = !isTorchOn; });
 }
 
 function takePhoto() {
     if (!videoStream) return;
-    
     const video = document.getElementById("video");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
@@ -182,22 +169,14 @@ function takePhoto() {
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    // 画質0.85のJPEGとしてBase64変換（送信容量を適正化）
     const base64Image = canvas.toDataURL("image/jpeg", 0.85);
-    
-    // 撮影時の確認バイブ（ブッ）
     if (navigator.vibrate) navigator.vibrate(100); 
 
     const d = new Date();
     const dateStr = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
     const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
-    sendQueue.push({
-        image: base64Image,
-        clientDate: dateStr,
-        clientTime: timeStr
-    });
-    
+    sendQueue.push({ image: base64Image, clientDate: dateStr, clientTime: timeStr });
     addHistoryLog("撮影完了！送信処理をお待ちください...", "wait");
     updateSystemStatusMessage("waiting");
 }
@@ -228,24 +207,25 @@ function processQueueBulk() {
     .then((res) => {
         if(res.status === "success") {
             sendQueue.splice(0, sendCount);
-            addHistoryLog(`スプシ自動記録完了: ${sendCount}件`, "ok");
-            
-            // 書き込み完了時に、手元の作業者に「ブブッ、ブブッ」と2回振動でお知らせ
-            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-            
-            updateSystemStatusMessage("success_hold");
+            let detailMsg = `スプシ記録完了`;
+            let statusText = "";
+            if (res.results && res.results[0] && res.results[0].status === "success") {
+                const d = res.results[0].details;
+                statusText = `${d.location} (${d.time}) WBGT:${d.data.wbgt} / ${d.data.temperature} / ${d.data.humidity}`;
+                detailMsg += ` [${statusText}]`;
+            }
+            addHistoryLog(detailMsg, "ok");
+            updateSystemStatusMessage("success_hold", statusText);
         } else {
-            addHistoryLog(`エラー: ${res.message} (再試行します)`, "ng");
+            addHistoryLog(`エラー: ${res.message}`, "ng");
             updateSystemStatusMessage("waiting");
         }
     })
-    .catch((err) => {
-        addHistoryLog("通信エラーが発生しました (再試行します)", "ng");
+    .catch(() => {
+        addHistoryLog("通信エラー(再試行します)", "ng");
         updateSystemStatusMessage("waiting");
     })
-    .finally(() => {
-        isSending = false;
-    });
+    .finally(() => { isSending = false; });
 }
 </script>
 </body>
