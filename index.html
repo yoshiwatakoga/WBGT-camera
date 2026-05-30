@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>熱中症記録カメラ (iOS・エラー対策版)</title>
+    <title>熱中症記録カメラ (枠削除・ログ蓄積版)</title>
     <style>
         body { font-family: sans-serif; text-align: center; margin: 0; padding: 5px; background: #f4f6f9; touch-action: manipulation; }
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); box-sizing: border-box; }
@@ -13,8 +13,6 @@
         .icon-box { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-size: 2rem; }
         .camera-wrapper { position: relative; width: 100%; max-width: 400px; margin: 5px auto; display: none; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15); height: 320px; }
         #video { width: 100%; background: #000; display: block; height: 100%; object-fit: cover; object-position: center; }
-        .overlay-guide { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; border: 3px dashed rgba(255, 255, 255, 0.4); box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; padding: 20px; }
-        .guide-text { color: yellow; background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; align-self: center; }
         .btn-group { display: flex; gap: 8px; margin-top: 8px; }
         .btn { color: white; padding: 14px; font-size: 1.2rem; border: none; border-radius: 10px; width: 100%; cursor: pointer; font-weight: bold; -webkit-appearance: none; }
         #cameraBtn { background: #2c3e50; }
@@ -44,11 +42,6 @@
 
     <div class="camera-wrapper" id="cameraWrapper">
         <video id="video" autoplay playsinline muted></video>
-        <div class="overlay-guide">
-            <span class="guide-text">マーカー(A,B,C)と熱中症計を枠内に収めてください</span>
-            <div style="border: 2px dashed rgba(255,255,255,0.6); height: 50%; width: 100%; border-radius: 6px;"></div>
-            <span class="guide-text">ピントを合わせて撮影してください</span>
-        </div>
     </div>
 
     <div class="btn-group">
@@ -62,14 +55,14 @@
             <li id="lbl-history-empty" style="color:#bdc3c7;">履歴はここに表示されます</li>
         </ul>
     </div>
-    <div class="version-info">Ver 2.55 (GASエラー対策 ＆ iOS互換強化版)</div>
+    <div class="version-info">Ver 3.00 (ガイド枠削除・ログ書き込み特化版)</div>
 </div>
 
 <canvas id="canvas"></canvas>
 
 <script>
-// ★ 新しく作成したGASのデプロイURLをここに貼り付けてください
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxDmSUaJee6j7mnoJVGbvgzzxA7qg0pSsJaoOJE3Z74fRINErDggdxWRYyV7Me40Rb6kQ/exec";
+// ★ 72行目：新しく生成したGASのデプロイURLをここに貼り付けてください
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzVM5zApM7XhkQsAjvt7CneYP4c1zTefl_tbZ3e_YLOkgPG2k7M5K7NrFFBToOdm1Hmfw/exec"; 
 
 let videoStream = null;
 let videoTrack = null;
@@ -95,25 +88,25 @@ function updateSystemStatusMessage(statusType, customText = "") {
 
     if (statusType === "sending") {
         logContainer.style.background = "#fff3cd"; logIcon.innerHTML = "🚀";
-        logText.style.color = "#e67e22"; logText.innerHTML = "Gemini解析 ＆ スプシ自動記入中...";
+        logText.style.color = "#e67e22"; logText.innerHTML = "Gemini高精度解析 ➔ ログ保存中...";
     } else if (statusType === "waiting") {
         logContainer.style.background = "#e8f5e9"; logIcon.innerHTML = "📥";
         logText.style.color = "#1a73e8"; logText.innerHTML = `送信待ちの写真が ${sendQueue.length} 件あります`;
     } else if (statusType === "success_hold") {
         logContainer.style.background = "#2ecc71"; logIcon.innerHTML = "✅";
         logText.style.color = "#ffffff";
-        let secondsLeft = 5;
+        let secondsLeft = 4;
         const info = customText ? `<br><span style="font-size:0.95rem; background:rgba(0,0,0,0.15); padding:2px 6px; border-radius:4px;">${customText}</span>` : "";
-        logText.innerHTML = `シート記入完了！${info}<br><span style='font-size:0.8rem; opacity:0.8;'>画面はあと (${secondsLeft}) 秒で戻ります</span>`;
+        logText.innerHTML = `ログ保存完了！${info}<br><span style='font-size:0.8rem; opacity:0.8;'>次の撮影まであと (${secondsLeft}) 秒</span>`;
         
         countdownInterval = setInterval(() => {
             secondsLeft--;
             if (secondsLeft <= 0) clearInterval(countdownInterval);
         }, 1000);
-        successTimer = setTimeout(() => { updateSystemStatusMessage("guide"); }, 5000);
+        successTimer = setTimeout(() => { updateSystemStatusMessage("guide"); }, 4000);
     } else if (statusType === "guide") {
         logIcon.innerHTML = "📸";
-        logText.innerHTML = "熱中症計と近くのマーカー（A, B, C）を同時にハッキリ写して撮影してください";
+        logText.innerHTML = "熱中症計と、近くのマーカー（A, B, C）が同時にハッキリ写るように撮影してください";
     }
 }
 
@@ -177,7 +170,7 @@ function takePhoto() {
     const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
     sendQueue.push({ image: base64Image, clientDate: dateStr, clientTime: timeStr });
-    addHistoryLog("撮影完了！送信処理をお待ちください...", "wait");
+    addHistoryLog("撮影完了！サーバーへ送信中...", "wait");
     updateSystemStatusMessage("waiting");
 }
 
@@ -207,22 +200,22 @@ function processQueueBulk() {
     .then((res) => {
         if(res.status === "success") {
             sendQueue.splice(0, sendCount);
-            let detailMsg = `スプシ記録完了`;
+            let detailMsg = `ログ保存成功`;
             let statusText = "";
             if (res.results && res.results[0] && res.results[0].status === "success") {
                 const d = res.results[0].details;
-                statusText = `${d.location} (${d.time}) WBGT:${d.data.wbgt} / ${d.data.temperature} / ${d.data.humidity}`;
+                statusText = `${d.location} WBGT:${d.data.wbgt} / ${d.data.temperature} / ${d.data.humidity}`;
                 detailMsg += ` [${statusText}]`;
             }
             addHistoryLog(detailMsg, "ok");
             updateSystemStatusMessage("success_hold", statusText);
         } else {
             addHistoryLog(`エラー: ${res.message}`, "ng");
-            updateSystemStatusMessage("waiting");
+            updateSystemStatusMessage("guide");
         }
     })
     .catch(() => {
-        addHistoryLog("通信エラー(再試行します)", "ng");
+        addHistoryLog("通信エラー(自動再試行します)", "ng");
         updateSystemStatusMessage("waiting");
     })
     .finally(() => { isSending = false; });
