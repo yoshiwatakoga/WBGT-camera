@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>熱中症記録カメラ (確実同期版)</title>
+    <title>熱中症記録カメラ (同期修正版)</title>
     <style>
         body { font-family: sans-serif; text-align: center; margin: 0; padding: 5px; background: #f4f6f9; touch-action: manipulation; }
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); box-sizing: border-box; }
@@ -50,7 +50,7 @@
             <li id="lbl-history-empty" style="color:#bdc3c7;">履歴はここに表示されます</li>
         </ul>
     </div>
-    <div class="version-info">Ver 3.40 (正常書き込み判別同期版)</div>
+    <div class="version-info">Ver 3.41 (正常書き込み判別同期・バグ修正版)</div>
 </div>
 <canvas id="canvas"></canvas>
 <script>
@@ -143,7 +143,6 @@ function toggleTorch() {
 }
 
 function takePhoto() {
-    // 送信中ならボタンを無効化（連投ガード）
     if (!videoStream || isSending) return; 
     isSending = true;
     
@@ -158,28 +157,24 @@ function takePhoto() {
     const base64Image = canvas.toDataURL("image/jpeg", 0.85);
     if (navigator.vibrate) navigator.vibrate(100); 
     const d = new Date();
-    const dateStr = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate').padStart(2, '0')}`;
+    const dateStr = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
     const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     
     addHistoryLog("撮影完了！通信中...", "wait");
     updateSystemStatusMessage("sending");
     
-    // 💡 タイマーを使わず、撮影したその場で1対1の確実な通信を行う
     const photoData = { image: base64Image, clientDate: dateStr, clientTime: timeStr };
     
     fetch(GAS_URL, { method: "POST", body: JSON.stringify({ dataList: [photoData] }) })
     .then((response) => response.json())
     .then((res) => {
-        // ✨ ここでGASから戻ってきた「本当の結果」を100%判別する
         if (res.status === "success") {
             const firstResult = res.results && res.results[0];
             
             if (firstResult && firstResult.status === "error") {
-                // AIの読み取りエラー（場所不明など）の場合
                 addHistoryLog(`失敗: ${firstResult.message}`, "ng");
                 updateSystemStatusMessage("analysis_error", firstResult.message);
             } else {
-                // スプシの書き込みが完全に成功したとお返事が来た場合
                 let statusText = "";
                 if (firstResult && firstResult.status === "success") {
                     const d = firstResult.details;
@@ -194,12 +189,10 @@ function takePhoto() {
         }
     })
     .catch((err) => {
-        // ネットワークの切断などで本当に通信が失敗した場合のみここを通る
         addHistoryLog("通信エラー（電波状況を確認してください）", "ng");
         updateSystemStatusMessage("analysis_error", "通信が遮断されました");
     })
     .finally(() => { 
-        // 処理が完全に終わったら次の撮影を許可する
         isSending = false; 
     });
 }
