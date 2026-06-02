@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>熱中症記録カメラ (エラー制御・撮り直し案内版)</title>
+    <title>熱中症記録カメラ (通信タイミング最適化版)</title>
     <style>
         body { font-family: sans-serif; text-align: center; margin: 0; padding: 5px; background: #f4f6f9; touch-action: manipulation; }
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); box-sizing: border-box; }
@@ -50,11 +50,10 @@
             <li id="lbl-history-empty" style="color:#bdc3c7;">履歴はここに表示されます</li>
         </ul>
     </div>
-    <div class="version-info">Ver 3.20 (エラー時連投ストップ・撮り直し案内版)</div>
+    <div class="version-info">Ver 3.25 (通信タイミング最適化版)</div>
 </div>
 <canvas id="canvas"></canvas>
 <script>
-// ★ 72行目：新しく生成したGASのデプロイURLをここに貼り付けてください
 const GAS_URL = "https://script.google.com/macros/s/AKfycbzo8DTFyaBGUX1nsFCD9weat2gq_S6F1F1aLPyrN_yDMJATO5tyNOKbw47PHaAfAoqCVg/exec"; 
 let videoStream = null;
 let videoTrack = null;
@@ -64,7 +63,8 @@ let isSending = false;
 let successTimer = null;
 let countdownInterval = null;
 
-setInterval(processQueueBulk, 3000);
+// 💡 解析時間を考慮し、チェック間隔を7秒に緩和。不要な連続送信を防ぎます
+setInterval(processQueueBulk, 7000);
 
 function updateSystemStatusMessage(statusType, customText = "") {
     const logContainer = document.getElementById("log-container");
@@ -150,7 +150,7 @@ function toggleTorch() {
 }
 
 function takePhoto() {
-    if (!videoStream) return;
+    if (!videoStream || isSending) return; // 💡 送信中は連投できないようにガード
     const video = document.getElementById("video");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
@@ -168,6 +168,9 @@ function takePhoto() {
     sendQueue.push({ image: base64Image, clientDate: dateStr, clientTime: timeStr });
     addHistoryLog("撮影完了！サーバーへ送信中...", "wait");
     updateSystemStatusMessage("waiting");
+    
+    // 💡 撮影直後に1回目の送信を即座にキック（無駄な3秒待ちを無くす）
+    processQueueBulk();
 }
 
 function addHistoryLog(message, type) {
@@ -184,6 +187,7 @@ function addHistoryLog(message, type) {
 }
 
 function processQueueBulk() {
+    // 💡 送信中、またはデータがない場合は完全に処理をスキップ（追い越し事故防止）
     if (isSending || sendQueue.length === 0) return;
     isSending = true;
     updateSystemStatusMessage("sending");
@@ -197,13 +201,10 @@ function processQueueBulk() {
             const firstResult = res.results && res.results[0];
             
             if (firstResult && firstResult.status === "error") {
-                // ⚠️ AI解析エラー（場所不明、読み取り不可など）が起きた場合
-                // 無駄な自動連投を防ぐため、送信待ちキューを破棄して処理をストップ
                 sendQueue.splice(0, sendCount);
                 addHistoryLog(`失敗: ${firstResult.message}`, "ng");
                 updateSystemStatusMessage("analysis_error", firstResult.message);
             } else {
-                // ✨ 正常にログ保存が成功した場合
                 sendQueue.splice(0, sendCount);
                 let detailMsg = `ログ保存成功`;
                 let statusText = "";
@@ -216,18 +217,19 @@ function processQueueBulk() {
                 updateSystemStatusMessage("success_hold", statusText);
             }
         } else {
-            // サーバー側システムエラー等
             addHistoryLog(`エラー: ${res.message}`, "ng");
             updateSystemStatusMessage("guide");
         }
     })
     .catch(() => {
-        // 純粋な通信エラー（ネットワーク切断等）の場合は、
-        // データをキューに残したまま保持し、電波復活時の自動再送に備える
-        addHistoryLog("通信エラー(電波を確認してください)", "ng");
+        // 本当の通信エラー（タイムアウト等含む）の場合
+        addHistoryLog("通信待ち(電波状況を確認しています...)", "ng");
         updateSystemStatusMessage("waiting");
     })
-    .finally(() => { isSending = false; });
+    .finally(() => { 
+        // 💡 処理が終わってから「送信中フラグ」を解除
+        isSending = false; 
+    });
 }
 </script>
 </body>
