@@ -1,215 +1,149 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>熱中症記録カメラ (文字図形両対応版)</title>
-<style>
-body { font-family: sans-serif; text-align: center; margin: 0; padding: 5px; background: #f4f6f9; touch-action: manipulation; }
-.container { max-width: 500px; margin: 0 auto; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); box-sizing: border-box; }
-.top-info { background: #2c3e50; color: white; padding: 12px; border-radius: 6px; font-weight: bold; margin-bottom: 8px; font-size: 1.1rem; }
-#log-container { margin: 5px 0; min-height: 85px; background: #ffffff; padding: 10px; border-radius: 6px; border: 1px solid #cfd8dc; display: flex; align-items: center; justify-content: center; gap: 15px; transition: background 0.3s ease; }
-#log-text { font-size: 1.05rem; text-align: left; line-height: 1.4; font-weight: bold; color: #2c3e50; }
-.icon-box { width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-size: 2rem; }
-.camera-wrapper { position: relative; width: 100%; max-width: 400px; margin: 5px auto; display: none; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15); height: 320px; }
-#video { width: 100%; background: #000; display: block; height: 100%; object-fit: cover; object-position: center; }
-.btn-group { display: flex; gap: 8px; margin-top: 8px; }
-.btn { color: white; padding: 14px; font-size: 1.2rem; border: none; border-radius: 10px; width: 100%; cursor: pointer; font-weight: bold; -webkit-appearance: none; }
-#cameraBtn { background: #2c3e50; }
-#shutterBtn { background: #d32f2f; flex: 2; display: none; }
-#torchBtn { background: #fbc02d; color: #2c3e50; flex: 1; display: none; font-size: 1rem; }
-.history-container { margin-top: 12px; text-align: left; background: #34495e; color: white; padding: 10px; border-radius: 8px; box-sizing: border-box; }
-.history-title { font-size: 0.9rem; font-weight: bold; margin-bottom: 6px; border-bottom: 1px solid #455a64; padding-bottom: 4px; color: #bdc3c7; }
-#historyList { max-height: 120px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; padding: 0; margin: 0; list-style: none; }
-#historyList li { padding: 5px 0; border-bottom: 1px solid #455a64; line-height: 1.3; }
-.history-ok { color: #2ecc71; }
-.history-ng { color: #e74c3c; }
-.history-wait { color: #f1c40f; }
-.version-info { margin-top: 10px; font-size: 0.7rem; color: #7f8c8d; text-align: center; }
-#canvas { display: none; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WBGT 写真自動送信システム</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 10px; background: #f4f4f4; }
+        h2 { margin: 5px 0 10px 0; font-size: 18px; color: #333; }
+        #video-container { position: relative; width: 100%; max-width: 400px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden; }
+        video { width: 100%; height: auto; display: block; }
+        
+        .section-title { font-size: 14px; font-weight: bold; margin: 15px 0 5px 0; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto; color: #555; }
+        .warehouse-group { display: flex; justify-content: space-between; max-width: 400px; margin: 0 auto 15px auto; gap: 8px; }
+        .btn-warehouse { flex: 1; padding: 12px 5px; font-size: 15px; font-weight: bold; border: 2px solid #ccc; background: #fff; border-radius: 6px; cursor: pointer; }
+        .btn-warehouse.active { background: #007bff; color: white; border-color: #0056b3; }
+        
+        .controls { display: flex; justify-content: center; align-items: center; max-width: 400px; margin: 0 auto; gap: 20px; }
+        #shutter-btn { width: 75px; height: 75px; background: #dc3545; border: 5px solid #fff; border-radius: 50%; box-shadow: 0 4px 6px rgba(0,0,0,0.3); cursor: pointer; }
+        #shutter-btn:active { background: #bd2130; }
+        .btn-light { padding: 10px 15px; font-size: 14px; font-weight: bold; background: #ffc107; border: none; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .btn-light.active { background: #e0a800; color: #fff; }
+        
+        #status { margin-top: 15px; font-size: 14px; font-weight: bold; color: blue; min-height: 20px; }
+        canvas { display: none; }
+    </style>
 </head>
 <body>
-<div class="container">
-<div class="top-info">熱中症計 自動記録システム</div>
-<div id="log-container">
-<div id="log-icon" class="icon-box">🔍</div>
-<div id="log-text">最初にカメラを起動してください</div>
-</div>
-<button id="cameraBtn" onclick="startCamera()" class="btn">カメラを起動する</button>
-<div class="camera-wrapper" id="cameraWrapper">
-<video id="video" autoplay playsinline muted></video>
-</div>
-<div class="btn-group">
-<button id="torchBtn" onclick="toggleTorch()" class="btn">💡 ライト ON</button>
-<button id="shutterBtn" onclick="takePhoto()" class="btn">📸 撮影して送信</button>
-</div>
-<div class="history-container">
-<div class="history-title">送信履歴</div>
-<ul id="historyList">
-<li id="lbl-history-empty" style="color:#bdc3c7;">履歴はここに表示されます</li>
-</ul>
-</div>
-<div class="version-info">Ver 3.45 (文字・マーク高精度完全同期版)</div>
-</div>
-<canvas id="canvas"></canvas>
-<script>
-// ※後ほどデプロイする最新のGASウェブアプリURLをここに貼り付けてください
-const GAS_URL = "https://script.google.com/macros/s/AKfycbww5AHy493qu5nASZNEQaaP8gVOV9l0q2soX5J3Uw663qiLRPxyMizNysajQeoOTfu-DA/exec";
-let videoStream = null;
-let videoTrack = null;
-let isTorchOn = false;
-let isSending = false;
-let successTimer = null;
-let countdownInterval = null;
 
-function updateSystemStatusMessage(statusType, customText = "") {
-const logContainer = document.getElementById("log-container");
-const logIcon = document.getElementById("log-icon");
-const logText = document.getElementById("log-text");
-if (statusType !== "success_hold" && statusType !== "analysis_error") {
-clearInterval(countdownInterval);
-clearTimeout(successTimer);
-logContainer.style.background = "#ffffff";
-logText.style.color = "#2c3e50";
-}
-if (statusType === "sending") {
-logContainer.style.background = "#fff3cd";
-logIcon.innerHTML = "🚀";
-logText.style.color = "#e67e22";
-logText.innerHTML = "Gemini高精度解析 ➔ スプシ書き込み中...<br><span style='font-size:0.85rem; font-weight:normal;'>※完了まで5〜8秒かかります</span>";
-} else if (statusType === "success_hold") {
-logContainer.style.background = "#2ecc71";
-logIcon.innerHTML = "✅";
-logText.style.color = "#ffffff";
-let secondsLeft = 4;
-const info = customText ? `<br><span style="font-size:0.95rem; background:rgba(0,0,0,0.15); padding:2px 6px; border-radius:4px;">${customText}</span>` : "";
-logText.innerHTML = `スプシ保存完了を確認！${info}<br><span style='font-size:0.8rem; opacity:0.8;'>次の撮影まであと (${secondsLeft}) 秒</span>`;
-countdownInterval = setInterval(() => {
-secondsLeft--;
-if (secondsLeft <= 0) clearInterval(countdownInterval);
-}, 1000);
-successTimer = setTimeout(() => { updateSystemStatusMessage("guide"); }, 4000);
-} else if (statusType === "analysis_error") {
-clearInterval(countdownInterval);
-clearTimeout(successTimer);
-logContainer.style.background = "#ffebee";
-logIcon.innerHTML = "⚠️";
-logText.style.color = "#c62828";
-logText.innerHTML = `記録失敗（${customText}）<br><span style="font-size:0.9rem; font-weight:normal;">もう一度、熱中症計とマークをハッキリ正面から撮り直してください。</span>`;
-} else if (statusType === "guide") {
-logIcon.innerHTML = "📸";
-logText.innerHTML = "熱中症計と、近くの文字（A, B, C）やマークが写るように撮影してください";
-}
-}
+    <h2>📷 WBGT 写真送信システム</h2>
 
-function startCamera() {
-document.getElementById("log-text").innerHTML = "カメラを起動しています...";
-const constraints1 = { video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false };
-const constraints2 = { video: { facingMode: "environment" }, audio: false };
-tryMediaDevice(constraints1)
-.catch(() => tryMediaDevice(constraints2))
-.catch((err) => {
-alert("カメラの起動に失敗しました。Safari/Chromeで開き直してください。");
-document.getElementById("log-text").innerHTML = "カメラ起動エラー。";
-});
-}
+    <div id="video-container">
+        <video id="video" autoplay playsinline></video>
+    </div>
 
-function tryMediaDevice(constraints) {
-return navigator.mediaDevices.getUserMedia(constraints)
-.then((stream) => {
-videoStream = stream;
-videoTrack = stream.getVideoTracks()[0];
-const video = document.getElementById("video");
-video.srcObject = stream;
-video.onloadedmetadata = () => { video.play().catch(e => console.log(e)); };
-document.getElementById("cameraBtn").style.display = "none";
-document.getElementById("cameraWrapper").style.display = "block";
-document.getElementById("shutterBtn").style.display = "block";
-try {
-const caps = videoTrack.getCapabilities();
-if (caps && caps.torch) document.getElementById("torchBtn").style.display = "block";
-} catch(e) {}
-updateSystemStatusMessage("guide");
-return true;
-});
-}
+    <div class="section-title">🏢 撮影する倉庫を選択してください：</div>
+    <div class="warehouse-group">
+        <button class="btn-warehouse active" onclick="selectWarehouse('４号倉庫', this)">４号倉庫</button>
+        <button class="btn-warehouse" onclick="selectWarehouse('７号倉庫', this)">７号倉庫</button>
+        <button class="btn-warehouse" onclick="selectWarehouse('新倉庫', this)">新倉庫</button>
+    </div>
 
-function toggleTorch() {
-if (!videoTrack) return;
-isTorchOn = !isTorchOn;
-videoTrack.applyConstraints({ advanced: [{ torch: isTorchOn }] })
-.then(() => {
-document.getElementById("torchBtn").innerText = isTorchOn ? "💡 ライト OFF" : "💡 ライト ON";
-}).catch(() => { isTorchOn = !isTorchOn; });
-}
+    <div class="controls">
+        <button id="light-btn" class="btn-light" onclick="toggleLight()">🔦 ライト OFF</button>
+        <button id="shutter-btn" title="写真を撮って自動送信"></button>
+        <div style="width:90px;"></div> </div>
 
-function takePhoto() {
-if (!videoStream || isSending) return;
-isSending = true;
-const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-canvas.width = video.videoWidth;
-canvas.height = video.videoHeight;
-ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-const base64Image = canvas.toDataURL("image/jpeg", 0.85);
-if (navigator.vibrate) navigator.vibrate(100);
-const d = new Date();
-const dateStr = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
-const timeStr = `${String(d.getHours()).padStart(2, '0 drift').padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-addHistoryLog("撮影完了！通信中...", "wait");
-updateSystemStatusMessage("sending");
+    <div id="status">カメラ起動中...</div>
+    <canvas id="canvas"></canvas>
 
-const photoData = {
-  image: base64Image,
-  clientDate: dateStr,
-  clientTime: timeStr,
-  marker_value: "EXEC_AI_ANALYSIS"
-};
+    <script>
+        // 🚨 【重要】先ほどGASで発行された「新しいウェブアプリのURL」をここに貼り付けてください
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxA92lAVKJoAM9emXY_f18xINgTfjw1jV6gl_P-HpImOhs6VUhMDKMjjGDjYtxflajGIQ/exec";
 
-fetch(GAS_URL, { method: "POST", body: JSON.stringify({ dataList: [photoData] }) })
-.then((response) => response.json())
-.then((res) => {
-if (res.status === "success") {
-const firstResult = res.results && res.results[0];
-if (firstResult && firstResult.status === "error") {
-addHistoryLog(`失敗: ${firstResult.message}`, "ng");
-updateSystemStatusMessage("analysis_error", firstResult.message);
-} else {
-let statusText = "";
-if (firstResult && firstResult.status === "success") {
-const d = firstResult.details;
-statusText = `${d.location} WBGT:${d.data.wbgt} / ${d.data.temperature}℃ / ${d.data.humidity}%`;
-}
-addHistoryLog(`保存完了 [${statusText}]`, "ok");
-updateSystemStatusMessage("success_hold", statusText);
-}
-} else {
-addHistoryLog(`エラー: ${res.message}`, "ng");
-updateSystemStatusMessage("guide");
-}
-})
-.catch((err) => {
-addHistoryLog("通信エラー（電波状況を確認してください）", "ng");
-updateSystemStatusMessage("analysis_error", "通信が遮断されました");
-})
-.finally(() => {
-isSending = false;
-});
-}
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const shutterBtn = document.getElementById('shutter-btn');
+        const statusDiv = document.getElementById('status');
+        let currentSelection = '４号倉庫';
+        let videoTrack = null;
+        let isLightOn = false;
 
-function addHistoryLog(message, type) {
-const historyList = document.getElementById("historyList");
-const emptyLbl = document.getElementById("lbl-history-empty");
-if (emptyLbl) emptyLbl.remove();
-const li = document.createElement("li");
-const d = new Date();
-const timeLog = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
-li.innerHTML = `[${timeLog}] ${message}`;
-li.className = type === "ok" ? "history-ok" : type === "ng" ? "history-ng" : "history-wait";
-historyList.insertBefore(li, historyList.firstChild);
-}
-</script>
+        // カメラ起動
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+            .then(stream => {
+                video.srcObject = stream;
+                videoTrack = stream.getVideoTracks()[0];
+                statusDiv.innerText = "倉庫を選んでシャッターを押してください";
+            })
+            .catch(err => {
+                statusDiv.innerText = "カメラの起動に失敗しました: " + err;
+                statusDiv.style.color = "red";
+            });
+
+        // 倉庫選択処理
+        function selectWarehouse(name, btn) {
+            currentSelection = name;
+            document.querySelectorAll('.btn-warehouse').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        // ライト点灯（フラッシュ）切り替え機能
+        function toggleLight() {
+            if (!videoTrack) return;
+            const btn = document.getElementById('light-btn');
+            isLightOn = !isLightOn;
+            
+            videoTrack.applyConstraints({
+                advanced: [{ torch: isLightOn }]
+            }).then(() => {
+                if (isLightOn) {
+                    btn.innerText = "🔦 ライト ON";
+                    btn.classList.add('active');
+                } else {
+                    btn.innerText = "🔦 ライト OFF";
+                    btn.classList.remove('active');
+                }
+            }).catch(err => {
+                statusDiv.innerText = "このスマホはライト制御に対応していません";
+                isLightOn = !isLightOn; // 状態を戻す
+            });
+        }
+
+        // シャッターを押したら撮影して自動送信
+        shutterBtn.addEventListener('click', () => {
+            if (shutterBtn.disabled) return;
+            
+            // 連打防止
+            shutterBtn.disabled = true;
+            statusDiv.innerText = "📸 撮影中 ＆ ドライブに送信中...";
+            statusDiv.style.color = "orange";
+
+            // 描画サイズをセット
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // 写真をBase64の文字データに変換
+            const base64Image = canvas.toDataURL('image/png');
+
+            // GASへデータ送信
+            fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    image: base64Image,
+                    location: currentSelection
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    statusDiv.innerText = "✅ 送信完了！(" + currentSelection + ")";
+                    statusDiv.style.color = "green";
+                } else {
+                    statusDiv.innerText = "❌ エラー: " + data.message;
+                    statusDiv.style.color = "red";
+                }
+                shutterBtn.disabled = false;
+            })
+            .catch(err => {
+                statusDiv.innerText = "❌ 送信に失敗しました。電波環境を確認してください。";
+                statusDiv.style.color = "red";
+                shutterBtn.disabled = false;
+            });
+        });
+    </script>
 </body>
 </html>
