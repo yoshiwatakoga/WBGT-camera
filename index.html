@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>熱中症記録カメラ (同期修正版)</title>
+<title>熱中症記録カメラ (文字図形両対応版)</title>
 <style>
 body { font-family: sans-serif; text-align: center; margin: 0; padding: 5px; background: #f4f6f9; touch-action: manipulation; }
 .container { max-width: 500px; margin: 0 auto; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); box-sizing: border-box; }
@@ -50,12 +50,12 @@ body { font-family: sans-serif; text-align: center; margin: 0; padding: 5px; bac
 <li id="lbl-history-empty" style="color:#bdc3c7;">履歴はここに表示されます</li>
 </ul>
 </div>
-<div class="version-info">Ver 3.43 (システム直通プロンプト同期版)</div>
+<div class="version-info">Ver 3.45 (文字・マーク高精度完全同期版)</div>
 </div>
 <canvas id="canvas"></canvas>
 <script>
-// ※最新のGASウェブアプリURLに書き換えてご使用ください
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxqxvBnv03y5hNgtKBjtP0mDUEZIhNRVOBFp6f6MWjUhgnCY5mGeUrgilGWcEzf5NwSdA/exec";
+// ※後ほどデプロイする最新のGASウェブアプリURLをここに貼り付けてください
+const GAS_URL = "https://script.google.com/macros/s/AKfycbww5AHy493qu5nASZNEQaaP8gVOV9l0q2soX5J3Uw663qiLRPxyMizNysajQeoOTfu-DA/exec";
 let videoStream = null;
 let videoTrack = null;
 let isTorchOn = false;
@@ -99,7 +99,7 @@ logText.style.color = "#c62828";
 logText.innerHTML = `記録失敗（${customText}）<br><span style="font-size:0.9rem; font-weight:normal;">もう一度、熱中症計とマークをハッキリ正面から撮り直してください。</span>`;
 } else if (statusType === "guide") {
 logIcon.innerHTML = "📸";
-logText.innerHTML = "熱中症計と、近くのマーク（●, ■, ▲）が同時にハッキリ写るように撮影してください";
+logText.innerHTML = "熱中症計と、近くの文字（A, B, C）やマークが写るように撮影してください";
 }
 }
 
@@ -110,8 +110,8 @@ const constraints2 = { video: { facingMode: "environment" }, audio: false };
 tryMediaDevice(constraints1)
 .catch(() => tryMediaDevice(constraints2))
 .catch((err) => {
-alert("カメラの起動に失敗しました。LINE内等の場合はSafari/Chromeで開き原してください。");
-document.getElementById("log-text").innerHTML = "カメラ起動エラー。再読み込みしてください。";
+alert("カメラの起動に失敗しました。Safari/Chromeで開き直してください。");
+document.getElementById("log-text").innerHTML = "カメラ起動エラー。";
 });
 }
 
@@ -157,18 +157,15 @@ const base64Image = canvas.toDataURL("image/jpeg", 0.85);
 if (navigator.vibrate) navigator.vibrate(100);
 const d = new Date();
 const dateStr = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
-const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+const timeStr = `${String(d.getHours()).padStart(2, '0 drift').padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 addHistoryLog("撮影完了！通信中...", "wait");
 updateSystemStatusMessage("sending");
-
-// 【最重要修正】marker_value の中に直接Geminiへの指示（プロンプト）を結合して流し込み、確実にAIに読ませます
-const instructionPrompt = "画像内の熱中症計の液晶画面から、大きな数字の『WBGT値』、および下部に小さく表示されている『TEMP（温度）』と『HUMIDITY（湿度）』の数値を正確に読み取ってください。また、測定器の周りに配置されている図形マーク（黒い丸型●、黒い四角型■、黒い三角型▲のいずれか）を検出し、検出したマーク（●、■、▲のいずれか）を正確に回答してください。";
 
 const photoData = {
   image: base64Image,
   clientDate: dateStr,
   clientTime: timeStr,
-  marker_value: instructionPrompt
+  marker_value: "EXEC_AI_ANALYSIS"
 };
 
 fetch(GAS_URL, { method: "POST", body: JSON.stringify({ dataList: [photoData] }) })
@@ -183,7 +180,7 @@ updateSystemStatusMessage("analysis_error", firstResult.message);
 let statusText = "";
 if (firstResult && firstResult.status === "success") {
 const d = firstResult.details;
-statusText = `${d.location} WBGT:${d.data.wbgt} / ${d.data.temperature} / ${d.data.humidity}`;
+statusText = `${d.location} WBGT:${d.data.wbgt} / ${d.data.temperature}℃ / ${d.data.humidity}%`;
 }
 addHistoryLog(`保存完了 [${statusText}]`, "ok");
 updateSystemStatusMessage("success_hold", statusText);
