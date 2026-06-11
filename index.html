@@ -50,7 +50,7 @@ body { font-family: sans-serif; text-align: center; margin: 0; padding: 5px; bac
 <li id="lbl-history-empty" style="color:#bdc3c7;">履歴はここに表示されます</li>
 </ul>
 </div>
-<div class="version-info">Ver 3.42 (マーク高精度解析同期版)</div>
+<div class="version-info">Ver 3.43 (システム直通プロンプト同期版)</div>
 </div>
 <canvas id="canvas"></canvas>
 <script>
@@ -110,7 +110,7 @@ const constraints2 = { video: { facingMode: "environment" }, audio: false };
 tryMediaDevice(constraints1)
 .catch(() => tryMediaDevice(constraints2))
 .catch((err) => {
-alert("カメラの起動に失敗しました。LINE内等の場合はSafari/Chromeで開き直してください。");
+alert("カメラの起動に失敗しました。LINE内等の場合はSafari/Chromeで開き原してください。");
 document.getElementById("log-text").innerHTML = "カメラ起動エラー。再読み込みしてください。";
 });
 }
@@ -161,12 +161,14 @@ const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes(
 addHistoryLog("撮影完了！通信中...", "wait");
 updateSystemStatusMessage("sending");
 
-// 【重要修正】画像とともに、Geminiへの高精度な図形・数値認識用プロンプトを内包して送信
+// 【最重要修正】marker_value の中に直接Geminiへの指示（プロンプト）を結合して流し込み、確実にAIに読ませます
+const instructionPrompt = "画像内の熱中症計の液晶画面から、大きな数字の『WBGT値』、および下部に小さく表示されている『TEMP（温度）』と『HUMIDITY（湿度）』の数値を正確に読み取ってください。また、測定器の周りに配置されている図形マーク（黒い丸型●、黒い四角型■、黒い三角型▲のいずれか）を検出し、検出したマーク（●、■、▲のいずれか）を正確に回答してください。";
+
 const photoData = {
   image: base64Image,
   clientDate: dateStr,
   clientTime: timeStr,
-  prompt: "画像内の熱中症計（みはりん坊プロ）の液晶画面から、大きな数字の『WBGT値』、および下部に小さく表示されている『TEMP（温度）』と『HUMIDITY（湿度）』の数値を正確に読み取ってください。また、測定器の周りに配置されている図形マーク（黒い丸型●、黒い四角型■、黒い三角型▲のいずれか）を検出し、検出したマーク（●、■、▲のいずれか）を正確に答えてください。"
+  marker_value: instructionPrompt
 };
 
 fetch(GAS_URL, { method: "POST", body: JSON.stringify({ dataList: [photoData] }) })
