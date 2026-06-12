@@ -51,7 +51,7 @@
 
     <script>
         // 🚨 【重要】先ほどGASで発行された最新の「ウェブアプリのURL」をここに貼り付けてください
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz_tc9v9SjVlxCIuTRvD-BGQ7n7N1hBM00IEzxJSkvMRSB-ssXUDYwIHMfZ0FxmOh5-Dg/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwFjFhKtrB_-Rd_1xgBnhVQ5NW3ihBCn8zZ61HKmSs1faBj0shO6ZoIGrWir8jv4o7cKg/exec";
 
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
@@ -87,10 +87,10 @@
                 advanced: [{ torch: isLightOn }]
             }).then(() => {
                 if (isLightOn) {
-                    btn.innerText = "🔦 ライト OFF"; // 点灯中は「OFFにするボタン」に
+                    btn.innerText = "🔦 ライト OFF";
                     btn.classList.add('active');
                 } else {
-                    btn.innerText = "🔦 ライト ON";  // 消灯中は「ONにするボタン」に
+                    btn.innerText = "🔦 ライト ON";
                     btn.classList.remove('active');
                 }
             }).catch(err => {
@@ -103,40 +103,50 @@
             if (shutterBtn.disabled) return;
             
             shutterBtn.disabled = true;
-            statusDiv.innerText = "⚡ 電波対策圧縮中 ＆ 送信中...";
+            statusDiv.innerText = "⚡ 爆速ファイル縮小 ＆ 直通送信中...";
             statusDiv.style.color = "orange";
 
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            // 【案2】縦横の比率を完全に維持したまま、横幅を800pxに縮小（画角は一切切れません）
+            const targetWidth = 800;
+            const scaleFactor = targetWidth / video.videoWidth;
+            canvas.width = targetWidth;
+            canvas.height = video.videoHeight * scaleFactor;
+
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            // 【電波対策】画質を50%にして容量を10分の1にスーパー軽量圧縮！
-            const base64Image = canvas.toDataURL('image/jpeg', 0.5);
+            // バイナリデータ(Blob)として直通道路で送信可能な形に変換
+            canvas.toBlob((blob) => {
+                // 【案1】FormDataを使った直通アップロードの仕組み
+                const formData = new FormData();
+                formData.append('file', blob);
+                formData.append('location', currentSelection);
+                
+                // 万が一のフォールバック用情報
+                formData.append('image_base64', canvas.toDataURL('image/jpeg', 0.6));
 
-            fetch(WEB_APP_URL, {
-                method: 'POST',
-                body: JSON.stringify({
-                    image: base64Image,
-                    location: currentSelection
+                fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    body: formData
                 })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    statusDiv.innerText = "✅ 送信完了！(" + currentSelection + ")";
-                    statusDiv.style.color = "green";
-                } else {
-                    statusDiv.innerText = "❌ エラー: " + data.message;
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        statusDiv.innerText = "✅ 送信完了！(" + currentSelection + ")";
+                        statusDiv.style.color = "green";
+                    } else {
+                        statusDiv.innerText = "❌ エラー: " + data.message;
+                        statusDiv.style.color = "red";
+                    }
+                    shutterBtn.disabled = false;
+                })
+                .catch(err => {
+                    // 通信環境が本当に悪い時用のテキスト
+                    statusDiv.innerText = "❌ 送信失敗。電波環境を確認してください。";
                     statusDiv.style.color = "red";
-                }
-                shutterBtn.disabled = false;
-            })
-            .catch(err => {
-                statusDiv.innerText = "❌ 送信失敗。電波環境を確認してください。";
-                statusDiv.style.color = "red";
-                shutterBtn.disabled = false;
-            });
+                    shutterBtn.disabled = false;
+                });
+            }, 'image/jpeg', 0.7); // 画質も少し最適化
         });
     </script>
 </body>
