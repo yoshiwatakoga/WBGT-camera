@@ -51,7 +51,7 @@
 
     <script>
         // 🚨 【重要】先ほどGASで発行された最新の「ウェブアプリのURL」をここに貼り付けてください
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwFjFhKtrB_-Rd_1xgBnhVQ5NW3ihBCn8zZ61HKmSs1faBj0shO6ZoIGrWir8jv4o7cKg/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz0pMw3_9ZKIXjSgUAm_3ZcWO4pBwocfIBn9Ua6tmo9XWJ-qkKWtnNLhR_tL2kWSD1bnA/exec";
 
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
@@ -103,10 +103,10 @@
             if (shutterBtn.disabled) return;
             
             shutterBtn.disabled = true;
-            statusDiv.innerText = "⚡ 爆速ファイル縮小 ＆ 直通送信中...";
+            statusDiv.innerText = "⚡ 画像を最適サイズに縮小して送信中...";
             statusDiv.style.color = "orange";
 
-            // 【案2】縦横の比率を完全に維持したまま、横幅を800pxに縮小（画角は一切切れません）
+            // 画角を一切切らずに、全体を「横幅800px」にリサイズする計算
             const targetWidth = 800;
             const scaleFactor = targetWidth / video.videoWidth;
             canvas.width = targetWidth;
@@ -115,38 +115,33 @@
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            // バイナリデータ(Blob)として直通道路で送信可能な形に変換
-            canvas.toBlob((blob) => {
-                // 【案1】FormDataを使った直通アップロードの仕組み
-                const formData = new FormData();
-                formData.append('file', blob);
-                formData.append('location', currentSelection);
-                
-                // 万が一のフォールバック用情報
-                formData.append('image_base64', canvas.toDataURL('image/jpeg', 0.6));
+            // 画質を適度に保ちつつ、データを驚くほど軽くする圧縮
+            const base64Image = canvas.toDataURL('image/jpeg', 0.6);
 
-                fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    body: formData
+            // 最も安定して高速に処理できる形式で送信
+            fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    image: base64Image,
+                    location: currentSelection
                 })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        statusDiv.innerText = "✅ 送信完了！(" + currentSelection + ")";
-                        statusDiv.style.color = "green";
-                    } else {
-                        statusDiv.innerText = "❌ エラー: " + data.message;
-                        statusDiv.style.color = "red";
-                    }
-                    shutterBtn.disabled = false;
-                })
-                .catch(err => {
-                    // 通信環境が本当に悪い時用のテキスト
-                    statusDiv.innerText = "❌ 送信失敗。電波環境を確認してください。";
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    statusDiv.innerText = "✅ 送信完了！(" + currentSelection + ")";
+                    statusDiv.style.color = "green";
+                } else {
+                    statusDiv.innerText = "❌ エラー: " + data.message;
                     statusDiv.style.color = "red";
-                    shutterBtn.disabled = false;
-                });
-            }, 'image/jpeg', 0.7); // 画質も少し最適化
+                }
+                shutterBtn.disabled = false;
+            })
+            .catch(err => {
+                statusDiv.innerText = "❌ 送信失敗。電波環境を確認してください。";
+                statusDiv.style.color = "red";
+                shutterBtn.disabled = false;
+            });
         });
     </script>
 </body>
