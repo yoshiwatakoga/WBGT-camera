@@ -41,16 +41,17 @@
     </div>
 
     <div class="controls">
-        <button id="light-btn" class="btn-light" onclick="toggleLight()">🔦 ライト OFF</button>
+        <button id="light-btn" class="btn-light" onclick="toggleLight()">🔦 ライト ON</button>
         <button id="shutter-btn" title="写真を撮って自動送信"></button>
-        <div style="width:90px;"></div> </div>
+        <div style="width:90px;"></div>
+    </div>
 
     <div id="status">カメラ起動中...</div>
     <canvas id="canvas"></canvas>
 
     <script>
-        // 🚨 【重要】先ほどGASで発行された「新しいウェブアプリのURL」をここに貼り付けてください
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxA92lAVKJoAM9emXY_f18xINgTfjw1jV6gl_P-HpImOhs6VUhMDKMjjGDjYtxflajGIQ/exec";
+        // 🚨 【重要】先ほどGASで発行された最新の「ウェブアプリのURL」をここに貼り付けてください
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxNCL7TOMU2quVokiwv6X8za6liWCM4U910q-h1P_ZJZzBXAEg5z6aiFDkyi9cGW24lPg/exec";
 
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
@@ -60,7 +61,6 @@
         let videoTrack = null;
         let isLightOn = false;
 
-        // カメラ起動
         navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
             .then(stream => {
                 video.srcObject = stream;
@@ -72,14 +72,12 @@
                 statusDiv.style.color = "red";
             });
 
-        // 倉庫選択処理
         function selectWarehouse(name, btn) {
             currentSelection = name;
             document.querySelectorAll('.btn-warehouse').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
         }
 
-        // ライト点灯（フラッシュ）切り替え機能
         function toggleLight() {
             if (!videoTrack) return;
             const btn = document.getElementById('light-btn');
@@ -89,37 +87,33 @@
                 advanced: [{ torch: isLightOn }]
             }).then(() => {
                 if (isLightOn) {
-                    btn.innerText = "🔦 ライト ON";
+                    btn.innerText = "🔦 ライト OFF"; // 点灯中は「OFFにするボタン」に
                     btn.classList.add('active');
                 } else {
-                    btn.innerText = "🔦 ライト OFF";
+                    btn.innerText = "🔦 ライト ON";  // 消灯中は「ONにするボタン」に
                     btn.classList.remove('active');
                 }
             }).catch(err => {
                 statusDiv.innerText = "このスマホはライト制御に対応していません";
-                isLightOn = !isLightOn; // 状態を戻す
+                isLightOn = !isLightOn;
             });
         }
 
-        // シャッターを押したら撮影して自動送信
         shutterBtn.addEventListener('click', () => {
             if (shutterBtn.disabled) return;
             
-            // 連打防止
             shutterBtn.disabled = true;
-            statusDiv.innerText = "📸 撮影中 ＆ ドライブに送信中...";
+            statusDiv.innerText = "⚡ 電波対策圧縮中 ＆ 送信中...";
             statusDiv.style.color = "orange";
 
-            // 描画サイズをセット
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            // 写真をBase64の文字データに変換
-            const base64Image = canvas.toDataURL('image/png');
+            // 【電波対策】画質を50%にして容量を10分の1にスーパー軽量圧縮！
+            const base64Image = canvas.toDataURL('image/jpeg', 0.5);
 
-            // GASへデータ送信
             fetch(WEB_APP_URL, {
                 method: 'POST',
                 body: JSON.stringify({
@@ -139,7 +133,7 @@
                 shutterBtn.disabled = false;
             })
             .catch(err => {
-                statusDiv.innerText = "❌ 送信に失敗しました。電波環境を確認してください。";
+                statusDiv.innerText = "❌ 送信失敗。電波環境を確認してください。";
                 statusDiv.style.color = "red";
                 shutterBtn.disabled = false;
             });
